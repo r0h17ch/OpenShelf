@@ -38,4 +38,13 @@ async function processNext(req, res, next) {
     }
 }
 
-module.exports = { create, myReservations, cancel, processNext };
+async function allReservations(req, res, next) {
+    try {
+        const reservations = await reservationService.getAllReservations();
+        res.json({ success: true, data: reservations });
+    } catch (err) {
+        next(err);
+    }
+}
+
+module.exports = { create, myReservations, cancel, processNext, allReservations };

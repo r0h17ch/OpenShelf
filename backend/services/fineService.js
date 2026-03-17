@@ -71,7 +71,7 @@ async function calculateOverdueFines() {
 }
 
 /**
- * Mark a fine as paid.
+ * Mark a fine as paid (by the user themselves).
  */
 async function payFine(fineId, userId) {
     const fine = await prisma.fine.findUnique({
@@ -83,10 +83,75 @@ async function payFine(fineId, userId) {
     if (fine.circulation.userId !== userId) throw new AppError('This fine does not belong to you.', 403);
     if (fine.isPaid) throw new AppError('This fine has already been paid.', 400);
 
-    return prisma.fine.update({
+    const updated = await prisma.fine.update({
         where: { id: fineId },
         data: { isPaid: true },
     });
+
+    // Update user balance
+    await prisma.user.update({
+        where: { id: userId },
+        data: {
+            fineBalance: { decrement: fine.amount },
+            totalFinesPaid: { increment: fine.amount },
+        },
+    });
+
+    return updated;
 }
 
-module.exports = { getUserFines, calculateOverdueFines, payFine };
+/**
+ * Get all fines (admin).
+ */
+async function getAllFines() {
+    const fines = await prisma.fine.findMany({
+        include: {
+            circulation: {
+                include: {
+                    book: { select: { id: true, title: true, isbn: true, author: true } },
+                    user: { select: { id: true, name: true, email: true } },
+                },
+            },
+        },
+        orderBy: { createdAt: 'desc' },
+    });
+
+    // Also get users with outstanding balances
+    const usersWithFines = await prisma.user.findMany({
+        where: { fineBalance: { gt: 0 } },
+        select: { id: true, name: true, email: true, fineBalance: true, totalFinesPaid: true },
+    });
+
+    return { fines, usersWithFines };
+}
+
+/**
+ * Admin marks a fine as paid.
+ */
+async function markFinePaid(fineId, adminId) {
+    const fine = await prisma.fine.findUnique({
+        where: { id: fineId },
+        include: { circulation: true },
+    });
+
+    if (!fine) throw new AppError('Fine not found.', 404);
+    if (fine.isPaid) throw new AppError('This fine has already been paid.', 400);
+
+    const updated = await prisma.fine.update({
+        where: { id: fineId },
+        data: { isPaid: true },
+    });
+
+    // Update user balance
+    await prisma.user.update({
+        where: { id: fine.circulation.userId },
+        data: {
+            fineBalance: { decrement: fine.amount },
+            totalFinesPaid: { increment: fine.amount },
+        },
+    });
+
+    return updated;
+}
+
+module.exports = { getUserFines, calculateOverdueFines, payFine, getAllFines, markFinePaid };

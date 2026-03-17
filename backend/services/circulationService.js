@@ -157,4 +157,142 @@ async function getUserCirculations(userId) {
     });
 }
 
-module.exports = { borrowBook, returnBook, rentBook, buyBook, getUserCirculations };
+/**
+ * Renew a borrowed book (extend due date). Max 1 renewal.
+ */
+async function renewBook(userId, circulationId) {
+    const circulation = await prisma.circulation.findUnique({
+        where: { id: circulationId },
+        include: { book: true },
+    });
+
+    if (!circulation) throw new AppError('Circulation record not found.', 404);
+    if (circulation.userId !== userId) throw new AppError('This is not your circulation record.', 403);
+    if (circulation.type !== 'BORROW') throw new AppError('Only borrow records can be renewed.', 400);
+    if (circulation.returnDate) throw new AppError('Book has already been returned.', 400);
+
+    const now = new Date();
+    if (circulation.dueDate && now > circulation.dueDate) {
+        throw new AppError('Cannot renew overdue books. Please return the book and pay any fines.', 400);
+    }
+
+    if (circulation.renewalCount >= 1) {
+        throw new AppError('Book has already been renewed once. Maximum renewals reached.', 400);
+    }
+
+    // Check for active reservations
+    const activeReservation = await prisma.reservation.findFirst({
+        where: { bookId: circulation.bookId, status: 'PENDING' },
+    });
+    if (activeReservation) {
+        throw new AppError('Cannot renew. This book has been reserved by another user.', 400);
+    }
+
+    const newDueDate = new Date(circulation.dueDate);
+    newDueDate.setDate(newDueDate.getDate() + DEFAULT_BORROW_DAYS);
+
+    return prisma.circulation.update({
+        where: { id: circulationId },
+        data: { dueDate: newDueDate, renewalCount: { increment: 1 }, renewedAt: now },
+        include: { book: true },
+    });
+}
+
+/**
+ * Admin borrows a book on behalf of a user (by email).
+ */
+async function adminBorrowBook(email, bookId) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new AppError('User not found.', 404);
+
+    if (user.fineBalance > 0) {
+        throw new AppError(`Cannot borrow. User has outstanding fine of ₹${user.fineBalance.toFixed(2)}.`, 403);
+    }
+
+    return borrowBook(user.id, bookId);
+}
+
+/**
+ * Admin returns a book (by circulation ID).
+ */
+async function adminReturnBook(circulationId) {
+    const circulation = await prisma.circulation.findUnique({
+        where: { id: circulationId },
+        include: { book: true },
+    });
+
+    if (!circulation) throw new AppError('Circulation record not found.', 404);
+    if (circulation.returnDate) throw new AppError('This book has already been returned.', 400);
+
+    const now = new Date();
+    let fine = null;
+
+    if (circulation.dueDate && now > circulation.dueDate) {
+        const daysOverdue = Math.ceil((now - circulation.dueDate) / (1000 * 60 * 60 * 24));
+        const finePerDay = parseFloat(process.env.FINE_PER_DAY) || 5;
+        const amount = daysOverdue * finePerDay;
+
+        fine = await prisma.fine.create({
+            data: { circulationId: circulation.id, amount, isPaid: false },
+        });
+
+        // Update user fine balance
+        await prisma.user.update({
+            where: { id: circulation.userId },
+            data: { fineBalance: { increment: amount } },
+        });
+    }
+
+    const updated = await prisma.circulation.update({
+        where: { id: circulationId },
+        data: { returnDate: now },
+        include: { book: true, user: { select: { id: true, name: true, email: true } } },
+    });
+
+    await updateBookStatus(circulation.bookId);
+    return { circulation: updated, fine };
+}
+
+/**
+ * Admin extends due date for a specific user's book.
+ */
+async function extendDueDate(email, bookId, days) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new AppError('User not found with this email.', 404);
+
+    const circulation = await prisma.circulation.findFirst({
+        where: { userId: user.id, bookId, type: 'BORROW', returnDate: null },
+        include: { book: true },
+    });
+
+    if (!circulation) throw new AppError('No active borrow found for this user and book.', 404);
+
+    const newDueDate = new Date(circulation.dueDate);
+    newDueDate.setDate(newDueDate.getDate() + days);
+
+    return prisma.circulation.update({
+        where: { id: circulation.id },
+        data: { dueDate: newDueDate, renewalCount: { increment: 1 }, renewedAt: new Date() },
+        include: { book: true, user: { select: { id: true, name: true, email: true } } },
+    });
+}
+
+/**
+ * Get all active circulations (admin).
+ */
+async function getAllActiveCirculations() {
+    return prisma.circulation.findMany({
+        where: { type: 'BORROW', returnDate: null },
+        include: {
+            book: true,
+            user: { select: { id: true, name: true, email: true } },
+            fines: true,
+        },
+        orderBy: { borrowDate: 'desc' },
+    });
+}
+
+module.exports = {
+    borrowBook, returnBook, rentBook, buyBook, getUserCirculations,
+    renewBook, adminBorrowBook, adminReturnBook, extendDueDate, getAllActiveCirculations,
+};

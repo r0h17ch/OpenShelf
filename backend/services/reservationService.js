@@ -113,4 +113,18 @@ async function reorderQueue(bookId) {
     }
 }
 
-module.exports = { createReservation, getUserReservations, cancelReservation, processNextReservation };
+/**
+ * Get all reservations (admin).
+ */
+async function getAllReservations() {
+    return prisma.reservation.findMany({
+        include: {
+            user: { select: { id: true, name: true, email: true } },
+            book: { select: { id: true, title: true, author: true, isbn: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+    });
+}
+
+module.exports = { createReservation, getUserReservations, cancelReservation, processNextReservation, getAllReservations };
+

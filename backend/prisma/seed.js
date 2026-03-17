@@ -180,6 +180,44 @@ async function main() {
         console.log('  ✓ Book:', book.title);
     }
 
+    // --- Seed Sample Book Suggestion ---
+    const existingSuggestion = await prisma.bookSuggestion.findFirst({
+        where: { title: 'The Pragmatic Programmer' },
+    });
+    if (!existingSuggestion) {
+        await prisma.bookSuggestion.create({
+            data: {
+                title: 'The Pragmatic Programmer',
+                author: 'David Thomas, Andrew Hunt',
+                description: 'A classic guide to software development best practices.',
+                category: 'Software Engineering',
+                suggestedById: user.id,
+                voteCount: 0,
+            },
+        });
+        console.log('  ✓ Sample book suggestion created');
+    }
+
+    // --- Seed Sample Book Donation ---
+    const existingDonation = await prisma.bookDonation.findFirst({
+        where: { title: 'Structure and Interpretation of Computer Programs' },
+    });
+    if (!existingDonation) {
+        await prisma.bookDonation.create({
+            data: {
+                userId: user.id,
+                title: 'Structure and Interpretation of Computer Programs',
+                author: 'Harold Abelson, Gerald Jay Sussman',
+                isbn: '978-0-262-51087-5',
+                genre: 'Computer Science',
+                condition: 'GOOD',
+                description: 'Classic MIT textbook on programming fundamentals.',
+                status: 'PENDING',
+            },
+        });
+        console.log('  ✓ Sample book donation created');
+    }
+
     console.log('✅ Seeding complete!');
 }
 
@@ -191,3 +229,4 @@ main()
     .finally(async () => {
         await prisma.$disconnect();
     });
+

@@ -14,6 +14,12 @@ const fineRoutes = require('./routes/fines');
 const reservationRoutes = require('./routes/reservations');
 const ragRoutes = require('./routes/rag');
 const adminRoutes = require('./routes/admin');
+const transactionRoutes = require('./routes/transactions');
+const donationRoutes = require('./routes/donations');
+const suggestionRoutes = require('./routes/suggestions');
+const inventoryRoutes = require('./routes/inventory');
+const reportRoutes = require('./routes/reports');
+const userRoutes = require('./routes/users');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -39,6 +45,12 @@ app.use('/api/fines', fineRoutes);
 app.use('/api/reservations', reservationRoutes);
 app.use('/api/rag', ragRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/transactions', transactionRoutes);
+app.use('/api/donations', donationRoutes);
+app.use('/api/suggestions', suggestionRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/users', userRoutes);
 
 // --------------- Error Handler (must be last) ---------------
 app.use(errorHandler);

@@ -33,20 +33,81 @@ enum ReservationStatus {
   CANCELLED
 }
 
+enum TransactionType {
+  BORROW
+  RETURN
+  FINE_PAYMENT
+  BOOK_PURCHASE
+  DONATION
+  RENEWAL
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  ONLINE
+  NA
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum DonationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+enum DonationCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+}
+
+enum SuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum InventoryIssueStatus {
+  MISSING
+  STOLEN
+}
+
 // ───────────── Models ─────────────
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      Role     @default(USER)
-  isPremium Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(uuid())
+  email          String   @unique
+  password       String
+  name           String
+  role           Role     @default(USER)
+  isPremium      Boolean  @default(false)
+  phone          String?
+  address        String?
+  fineBalance    Float    @default(0)
+  totalFinesPaid Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  circulations Circulation[]
-  reservations Reservation[]
+  circulations         Circulation[]
+  reservations         Reservation[]
+  transactions         Transaction[]       @relation("UserTransactions")
+  processedTransactions Transaction[]      @relation("ProcessedTransactions")
+  donations            BookDonation[]       @relation("UserDonations")
+  processedDonations   BookDonation[]       @relation("ProcessedDonations")
+  suggestions          BookSuggestion[]     @relation("UserSuggestions")
+  approvedSuggestions  BookSuggestion[]     @relation("ApprovedSuggestions")
+  suggestionVotes      SuggestionVote[]
+  reportedIssues       InventoryIssue[]     @relation("ReportedIssues")
+  resolvedIssues       InventoryIssue[]     @relation("ResolvedIssues")
 
   @@map("users")
 }
@@ -73,22 +134,27 @@ model Book {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  circulations Circulation[]
-  reservations Reservation[]
-  embeddings   Embedding[]
+  circulations    Circulation[]
+  reservations    Reservation[]
+  embeddings      Embedding[]
+  transactions    Transaction[]
+  donatedBooks    BookDonation[]  @relation("DonatedBook")
+  inventoryIssues InventoryIssue[]
 
   @@map("books")
 }
 
 model Circulation {
-  id         String          @id @default(uuid())
-  userId     String
-  bookId     String
-  type       CirculationType
-  borrowDate DateTime        @default(now())
-  dueDate    DateTime?
-  returnDate DateTime?
-  createdAt  DateTime        @default(now())
+  id           String          @id @default(uuid())
+  userId       String
+  bookId       String
+  type         CirculationType
+  borrowDate   DateTime        @default(now())
+  dueDate      DateTime?
+  returnDate   DateTime?
+  renewalCount Int             @default(0)
+  renewedAt    DateTime?
+  createdAt    DateTime        @default(now())
 
   user  User   @relation(fields: [userId], references: [id])
   book  Book   @relation(fields: [bookId], references: [id])
@@ -142,4 +208,109 @@ model Embedding {
   book Book @relation(fields: [bookId], references: [id])
 
   @@map("embeddings")
+}
+
+// ───────────── New Traditional Library Models ─────────────
+
+model Transaction {
+  id            String          @id @default(uuid())
+  type          TransactionType
+  userId        String
+  bookId        String?
+  amount        Float           @default(0)
+  paymentMethod PaymentMethod   @default(NA)
+  paymentStatus PaymentStatus   @default(COMPLETED)
+  description   String
+  processedById String?
+  metadata      Json?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  user        User  @relation("UserTransactions", fields: [userId], references: [id])
+  book        Book? @relation(fields: [bookId], references: [id])
+  processedBy User? @relation("ProcessedTransactions", fields: [processedById], references: [id])
+
+  @@map("transactions")
+}
+
+model BookDonation {
+  id              String            @id @default(uuid())
+  userId          String
+  title           String
+  author          String
+  isbn            String?
+  publicationYear Int?
+  genre           String?
+  condition       DonationCondition @default(GOOD)
+  description     String?
+  status          DonationStatus    @default(PENDING)
+  adminNotes      String?
+  processedById   String?
+  processedAt     DateTime?
+  donatedBookId   String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  user        User  @relation("UserDonations", fields: [userId], references: [id])
+  processedBy User? @relation("ProcessedDonations", fields: [processedById], references: [id])
+  donatedBook Book? @relation("DonatedBook", fields: [donatedBookId], references: [id])
+
+  @@map("book_donations")
+}
+
+model BookSuggestion {
+  id           String           @id @default(uuid())
+  title        String
+  author       String
+  description  String
+  isbn         String?
+  category     String
+  suggestedById String
+  voteCount    Int              @default(0)
+  status       SuggestionStatus @default(PENDING)
+  adminNotes   String?
+  approvedById String?
+  approvedAt   DateTime?
+  rejectedAt   DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  suggestedBy User             @relation("UserSuggestions", fields: [suggestedById], references: [id])
+  approvedBy  User?            @relation("ApprovedSuggestions", fields: [approvedById], references: [id])
+  votes       SuggestionVote[]
+
+  @@map("book_suggestions")
+}
+
+model SuggestionVote {
+  id           String @id @default(uuid())
+  userId       String
+  suggestionId String
+  createdAt    DateTime @default(now())
+
+  user       User           @relation(fields: [userId], references: [id])
+  suggestion BookSuggestion @relation(fields: [suggestionId], references: [id])
+
+  @@unique([userId, suggestionId])
+  @@map("suggestion_votes")
+}
+
+model InventoryIssue {
+  id           String               @id @default(uuid())
+  bookId       String
+  status       InventoryIssueStatus
+  note         String               @default("")
+  reportedById String
+  reportedAt   DateTime             @default(now())
+  resolved     Boolean              @default(false)
+  resolvedAt   DateTime?
+  resolvedById String?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  book       Book  @relation(fields: [bookId], references: [id])
+  reportedBy User  @relation("ReportedIssues", fields: [reportedById], references: [id])
+  resolvedBy User? @relation("ResolvedIssues", fields: [resolvedById], references: [id])
+
+  @@map("inventory_issues")
 }

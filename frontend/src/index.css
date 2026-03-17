@@ -1,0 +1,112 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  @apply bg-gray-950 text-gray-100 antialiased;
+  min-height: 100vh;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-gray-900;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-700 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-600;
+}
+
+/* Glassmorphism utility */
+.glass {
+  @apply bg-gray-900/50 backdrop-blur-xl border border-gray-800/50;
+}
+.glass-card {
+  @apply bg-gray-900/60 backdrop-blur-xl border border-gray-800/40 rounded-2xl;
+}
+
+/* Gradient text */
+.gradient-text {
+  @apply bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent;
+}
+
+/* Button styles */
+.btn-primary {
+  @apply px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl
+         hover:from-emerald-600 hover:to-cyan-600 active:scale-[0.98] transition-all duration-200
+         shadow-lg shadow-emerald-500/20;
+}
+.btn-secondary {
+  @apply px-6 py-2.5 bg-gray-800 text-gray-200 font-semibold rounded-xl
+         hover:bg-gray-700 active:scale-[0.98] transition-all duration-200
+         border border-gray-700;
+}
+.btn-danger {
+  @apply px-6 py-2.5 bg-red-600 text-white font-semibold rounded-xl
+         hover:bg-red-700 active:scale-[0.98] transition-all duration-200;
+}
+
+/* Input styles */
+.input-field {
+  @apply w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-gray-100
+         placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/60
+         transition-all duration-200;
+}
+
+/* Hide browser autofill decorations */
+input::-webkit-credentials-auto-fill-button,
+input::-webkit-contacts-auto-fill-button {
+  visibility: hidden;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+}
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px #1f2937 inset;
+  -webkit-text-fill-color: #f3f4f6;
+  caret-color: #f3f4f6;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Card hover animation */
+.card-hover {
+  @apply transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/5 hover:-translate-y-0.5;
+}
+
+/* Page animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* Status badges */
+.badge {
+  @apply px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide;
+}
+.badge-success { @apply bg-emerald-500/10 text-emerald-400 border border-emerald-500/20; }
+.badge-warning { @apply bg-amber-500/10 text-amber-400 border border-amber-500/20; }
+.badge-danger  { @apply bg-red-500/10 text-red-400 border border-red-500/20; }
+.badge-info    { @apply bg-blue-500/10 text-blue-400 border border-blue-500/20; }
+.badge-neutral { @apply bg-gray-500/10 text-gray-400 border border-gray-500/20; }

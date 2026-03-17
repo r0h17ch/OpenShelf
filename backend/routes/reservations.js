@@ -10,7 +10,9 @@ router.post('/', reservationController.create);
 router.get('/my', reservationController.myReservations);
 router.delete('/:id', reservationController.cancel);
 
-// Admin: process / fulfill next reservation
+// Admin routes
+router.get('/all', requireAdmin, reservationController.allReservations);
 router.post('/process/:bookId', requireAdmin, reservationController.processNext);
 
 module.exports = router;
+

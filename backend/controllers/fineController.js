@@ -27,4 +27,23 @@ async function pay(req, res, next) {
     }
 }
 
-module.exports = { myFines, calculate, pay };
+async function allFines(req, res, next) {
+    try {
+        const data = await fineService.getAllFines();
+        res.json({ success: true, data });
+    } catch (err) {
+        next(err);
+    }
+}
+
+async function markPaid(req, res, next) {
+    try {
+        const fine = await fineService.markFinePaid(req.params.id, req.user.id);
+        res.json({ success: true, data: fine });
+    } catch (err) {
+        next(err);
+    }
+}
+
+module.exports = { myFines, calculate, pay, allFines, markPaid };
+
