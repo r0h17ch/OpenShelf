@@ -1,82 +1,210 @@
+// Import React hooks
 import { useEffect, useState } from 'react';
+
+// Import Redux hook to access global state
 import { useSelector } from 'react-redux';
+
+// Import API instance
 import api from '../api/axios';
+
+// Import icons
 import { BookOpen, Users, Clock, DollarSign, TrendingUp, AlertTriangle } from 'lucide-react';
 
 export default function Dashboard() {
+
+  // Get user data from Redux store
   const { user } = useSelector((state) => state.auth);
+
+  // Check if user is admin
   const isAdmin = user?.role === 'ADMIN';
+
+  // State to store statistics
   const [stats, setStats] = useState(null);
+
+  // State for loading spinner
   const [loading, setLoading] = useState(true);
 
+  // Fetch data when component loads or role changes
   useEffect(() => {
     const fetchStats = async () => {
       try {
+        // If admin → fetch full library stats
+        // If user → fetch personal borrow data
         const { data } = isAdmin
           ? await api.get('/reports/library-stats')
           : await api.get('/circulation/my');
-        setStats(isAdmin ? data.data : { circulations: data.data || data });
+
+        // Store data accordingly
+        setStats(
+          isAdmin
+            ? data.data
+            : { circulations: data.data || data }
+        );
       } catch (err) {
+        // Log error if API fails
         console.error('Failed to fetch stats', err);
-      } finally { setLoading(false); }
+      } finally {
+        // Stop loading spinner
+        setLoading(false);
+      }
     };
+
     fetchStats();
   }, [isAdmin]);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" /></div>;
+  // Show loader while fetching data
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+      </div>
+    );
 
+  // Admin dashboard cards data
   const statCards = isAdmin && stats ? [
-    { icon: BookOpen, label: 'Total Books', value: stats.books?.total || 0, color: 'emerald', sub: `${stats.books?.available || 0} available` },
-    { icon: Users, label: 'Total Users', value: stats.users?.total || 0, color: 'cyan', sub: `${stats.users?.admins || 0} admins` },
-    { icon: Clock, label: 'Active Borrows', value: stats.borrows?.active || 0, color: 'amber', sub: `${stats.borrows?.overdue || 0} overdue` },
-    { icon: DollarSign, label: 'Unpaid Fines', value: `₹${stats.fines?.unpaidFines || 0}`, color: 'red', sub: `₹${stats.fines?.paidFines || 0} paid` },
+    {
+      icon: BookOpen,
+      label: 'Total Books',
+      value: stats.books?.total || 0,
+      color: 'emerald',
+      sub: `${stats.books?.available || 0} available`
+    },
+    {
+      icon: Users,
+      label: 'Total Users',
+      value: stats.users?.total || 0,
+      color: 'cyan',
+      sub: `${stats.users?.admins || 0} admins`
+    },
+    {
+      icon: Clock,
+      label: 'Active Borrows',
+      value: stats.borrows?.active || 0,
+      color: 'amber',
+      sub: `${stats.borrows?.overdue || 0} overdue`
+    },
+    {
+      icon: DollarSign,
+      label: 'Unpaid Fines',
+      value: `₹${stats.fines?.unpaidFines || 0}`,
+      color: 'red',
+      sub: `₹${stats.fines?.paidFines || 0} paid`
+    },
   ] : [];
 
-  const userBorrows = !isAdmin && stats?.circulations ? stats.circulations.filter(c => !c.returnDate) : [];
+  // Get currently borrowed books for normal users
+  const userBorrows =
+    !isAdmin && stats?.circulations
+      ? stats.circulations.filter(c => !c.returnDate)
+      : [];
 
   return (
     <div className="space-y-6">
+
+      {/* Welcome message */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-100">Welcome back, <span className="gradient-text">{user?.name}</span></h1>
-        <p className="text-gray-500 mt-1">{isAdmin ? 'Library administration overview' : 'Your library activity'}</p>
+        <h1 className="text-2xl font-bold text-gray-100">
+          Welcome back, <span className="gradient-text">{user?.name}</span>
+        </h1>
+
+        <p className="text-gray-500 mt-1">
+          {isAdmin
+            ? 'Library administration overview'
+            : 'Your library activity'}
+        </p>
       </div>
 
+      {/* Admin Dashboard */}
       {isAdmin ? (
+
+        // Grid for stats cards
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+          {/* Loop through each stat card */}
           {statCards.map(({ icon: Icon, label, value, color, sub }) => (
             <div key={label} className="glass-card p-5 card-hover">
+
+              {/* Icon and trend */}
               <div className="flex items-center justify-between mb-3">
                 <div className={`w-10 h-10 rounded-xl bg-${color}-500/10 flex items-center justify-center`}>
                   <Icon className={`w-5 h-5 text-${color}-400`} />
                 </div>
+
                 <TrendingUp className="w-4 h-4 text-gray-600" />
               </div>
-              <p className="text-2xl font-bold text-gray-100">{value}</p>
-              <p className="text-sm text-gray-500 mt-0.5">{label}</p>
-              <p className="text-xs text-gray-600 mt-1">{sub}</p>
+
+              {/* Main value */}
+              <p className="text-2xl font-bold text-gray-100">
+                {value}
+              </p>
+
+              {/* Label */}
+              <p className="text-sm text-gray-500 mt-0.5">
+                {label}
+              </p>
+
+              {/* Sub info */}
+              <p className="text-xs text-gray-600 mt-1">
+                {sub}
+              </p>
             </div>
           ))}
         </div>
+
       ) : (
+
+        // Normal User Dashboard
         <div className="glass-card p-6">
-          <h2 className="text-lg font-semibold text-gray-200 mb-4">Currently Borrowed ({userBorrows.length})</h2>
+
+          {/* Section title */}
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">
+            Currently Borrowed ({userBorrows.length})
+          </h2>
+
+          {/* If no borrowed books */}
           {userBorrows.length === 0 ? (
-            <p className="text-gray-500">No books currently borrowed. Visit the <a href="/books" className="text-emerald-400 hover:underline">library</a> to borrow a book.</p>
+            <p className="text-gray-500">
+              No books currently borrowed. Visit the{' '}
+              <a href="/books" className="text-emerald-400 hover:underline">
+                library
+              </a>{' '}
+              to borrow a book.
+            </p>
           ) : (
+
+            // List of borrowed books
             <div className="space-y-3">
               {userBorrows.map((c) => (
+
                 <div key={c.id} className="flex items-center justify-between p-4 bg-gray-800/30 rounded-xl">
+
+                  {/* Book info */}
                   <div>
-                    <p className="font-medium text-gray-200">{c.book?.title}</p>
-                    <p className="text-sm text-gray-500">{c.book?.author}</p>
+                    <p className="font-medium text-gray-200">
+                      {c.book?.title}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {c.book?.author}
+                    </p>
                   </div>
+
+                  {/* Due date + status */}
                   <div className="text-right">
-                    <p className="text-sm text-gray-400">Due: {c.dueDate ? new Date(c.dueDate).toLocaleDateString() : 'N/A'}</p>
+                    <p className="text-sm text-gray-400">
+                      Due: {c.dueDate
+                        ? new Date(c.dueDate).toLocaleDateString()
+                        : 'N/A'}
+                    </p>
+
+                    {/* Show overdue badge */}
                     {c.dueDate && new Date(c.dueDate) < new Date() && (
-                      <span className="badge badge-danger mt-1 inline-flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Overdue</span>
+                      <span className="badge badge-danger mt-1 inline-flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> Overdue
+                      </span>
                     )}
                   </div>
                 </div>
+
               ))}
             </div>
           )}
