@@ -72,4 +72,17 @@ async function uploadCharity(req, res, next) {
     }
 }
 
-module.exports = { list, getById, create, update, remove, uploadCharity };
+async function uploadCover(req, res, next) {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'Cover image is required.' });
+        }
+        const coverPath = `/uploads/${req.file.filename}`;
+        const book = await bookService.uploadCoverBook(req.params.id, coverPath);
+        res.json({ success: true, data: book, message: 'Cover uploaded successfully!' });
+    } catch (err) {
+        next(err);
+    }
+}
+
+module.exports = { list, getById, create, update, remove, uploadCharity, uploadCover };

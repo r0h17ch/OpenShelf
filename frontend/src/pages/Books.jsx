@@ -14,7 +14,7 @@ import { toast } from 'react-toastify';
 import api from '../api/axios';
 
 // Import icons
-import { BookOpen, Search, Filter, BookCopy, Bookmark } from 'lucide-react';
+import { BookOpen, Search, Filter, BookCopy, Bookmark, UploadCloud } from 'lucide-react';
 
 export default function Books() {
   const dispatch = useDispatch(); // used to dispatch Redux actions
@@ -30,6 +30,7 @@ export default function Books() {
 
   // State for genre filter
   const [genreFilter, setGenreFilter] = useState('');
+  const [dragOverId, setDragOverId] = useState(null);
 
   // Fetch books when component loads
   useEffect(() => {
@@ -83,13 +84,42 @@ export default function Books() {
     }
   };
 
-  // Show loading spinner while fetching data
-  if (loading)
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-      </div>
-    );
+  const handleDragOver = (e, bookId) => {
+    e.preventDefault();
+    if (user?.role === 'ADMIN') setDragOverId(bookId);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragOverId(null);
+  };
+
+  const handleDrop = async (e, bookId) => {
+    e.preventDefault();
+    setDragOverId(null);
+    if (user?.role !== 'ADMIN') return;
+
+    const file = e.dataTransfer.files[0];
+    if (!file || !file.type.startsWith('image/')) {
+      toast.error('Please drop a valid image file for the cover');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('cover', file);
+
+    try {
+      await api.put(`/books/${bookId}/cover`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      toast.success('Cover uploaded successfully!');
+      dispatch(fetchBooks());
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to upload cover');
+    }
+  };
+
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" /></div>;
 
   return (
     <div className="space-y-6">
@@ -143,35 +173,52 @@ export default function Books() {
         {/* Loop through filtered books */}
         {filtered.map((book) => (
           <div key={book.id} className="glass-card overflow-hidden card-hover group">
-
-            {/* Book cover */}
-            <div className="h-40 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center relative overflow-hidden">
-              
-              {/* If cover exists, show image else show icon */}
+            {/* Cover */}
+            <div
+              className={`h-40 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center relative overflow-hidden transition-all ${dragOverId === book.id ? 'ring-2 ring-emerald-500 scale-105' : ''}`}
+              onDragOver={(e) => handleDragOver(e, book.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, book.id)}
+            >
               {book.coverUrl ? (
-                <img
-                  src={book.coverUrl}
-                  alt={book.title}
-                  className="w-full h-full object-cover"
-                />
+                <>
+                  <img src={book.coverUrl} alt={book.title} className="w-full h-full object-cover" />
+                  {dragOverId === book.id && (
+                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center fade-in">
+                      <UploadCloud className="w-8 h-8 text-emerald-400 mb-2" />
+                      <span className="text-sm font-medium text-emerald-400">Replace Cover</span>
+                    </div>
+                  )}
+                </>
               ) : (
-                <BookOpen className="w-12 h-12 text-gray-700 group-hover:text-gray-600 transition-colors" />
+                <>
+                  <BookOpen className={`w-12 h-12 text-gray-700 transition-colors ${dragOverId === book.id ? 'opacity-0' : 'group-hover:text-gray-600'}`} />
+                  {(user?.role === 'ADMIN' && dragOverId !== book.id) && (
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity">
+                      <UploadCloud className="w-6 h-6 text-gray-300 mb-1" />
+                      <span className="text-xs font-medium text-gray-300">Drop image here</span>
+                    </div>
+                  )}
+                  {dragOverId === book.id && (
+                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center fade-in">
+                      <UploadCloud className="w-8 h-8 text-emerald-400 mb-2" />
+                      <span className="text-sm font-medium text-emerald-400">Drop Cover</span>
+                    </div>
+                  )}
+                </>
               )}
-
-              {/* Status badges */}
               <div className="absolute top-2 right-2 flex gap-1.5">
                 {book.isDigital && (
                   <span className="badge badge-info text-[10px]">Digital</span>
                 )}
 
                 <span
-                  className={`badge text-[10px] ${
-                    book.status === 'AVAILABLE'
+                  className={`badge text-[10px] ${book.status === 'AVAILABLE'
                       ? 'badge-success'
                       : book.status === 'BORROWED'
-                      ? 'badge-warning'
-                      : 'badge-neutral'
-                  }`}
+                        ? 'badge-warning'
+                        : 'badge-neutral'
+                    }`}
                 >
                   {book.status}
                 </span>

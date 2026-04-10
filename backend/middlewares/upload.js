@@ -13,7 +13,7 @@ const storage = multer.diskStorage({
     },
 });
 
-const fileFilter = (_req, file, cb) => {
+const pdfFilter = (_req, file, cb) => {
     if (file.mimetype === 'application/pdf') {
         cb(null, true);
     } else {
@@ -21,10 +21,24 @@ const fileFilter = (_req, file, cb) => {
     }
 };
 
+const imageFilter = (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+    } else {
+        cb(new AppError('Only image files are allowed.', 400), false);
+    }
+};
+
 const upload = multer({
     storage,
-    fileFilter,
+    fileFilter: pdfFilter,
     limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
 });
 
-module.exports = { upload };
+const uploadImage = multer({
+    storage,
+    fileFilter: imageFilter,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB for images
+});
+
+module.exports = { upload, uploadImage };

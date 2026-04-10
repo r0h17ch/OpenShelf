@@ -108,6 +108,19 @@ async function uploadCharityBook({ isbn, title, author, genre, description, pdfP
 }
 
 /**
+ * Upload a cover image for a book.
+ */
+async function uploadCoverBook(id, coverUrl) {
+    const book = await prisma.book.findUnique({ where: { id } });
+    if (!book) throw new AppError('Book not found.', 404);
+    
+    return prisma.book.update({
+        where: { id },
+        data: { coverUrl },
+    });
+}
+
+/**
  * Recalculate book availability status based on physical count and active borrows.
  */
 async function updateBookStatus(bookId) {
@@ -140,4 +153,5 @@ module.exports = {
     deleteBook,
     uploadCharityBook,
     updateBookStatus,
+    uploadCoverBook,
 };
