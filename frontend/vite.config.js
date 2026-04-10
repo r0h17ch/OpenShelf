@@ -22,6 +22,10 @@ export default defineConfig({
         target: 'http://localhost:3000', // Forward these requests to backend server
         changeOrigin: true, // Needed for virtual hosted sites, modifies the origin header
       },
+      '/uploads': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
     },
   },
 })
