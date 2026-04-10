@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../api/axios';
+import { UploadCloud } from 'lucide-react';
 
 export default function AddBook() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ isbn: '', title: '', author: '', genre: '', publisher: '', edition: '', year: '', description: '', isDigital: false, physicalCount: 1, digitalCount: 0, shelfLocation: '', price: '', rentPrice: '' });
+  const [coverImage, setCoverImage] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -13,7 +15,20 @@ export default function AddBook() {
     setLoading(true);
     try {
       const payload = { ...form, year: form.year ? parseInt(form.year) : null, physicalCount: parseInt(form.physicalCount), digitalCount: parseInt(form.digitalCount), price: form.price ? parseFloat(form.price) : null, rentPrice: form.rentPrice ? parseFloat(form.rentPrice) : null };
-      await api.post('/books', payload);
+      
+      // 1. Create the book
+      const response = await api.post('/books', payload);
+      const newBook = response.data.data;
+
+      // 2. Upload cover if selected
+      if (coverImage) {
+        const formData = new FormData();
+        formData.append('cover', coverImage);
+        await api.put(`/books/${newBook.id}/cover`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      }
+
       toast.success('Book added successfully!');
       navigate('/books');
     } catch (err) {
@@ -43,6 +58,24 @@ export default function AddBook() {
             <div><label className="block text-sm text-gray-400 mb-1">Buy Price (₹)</label><input type="number" className="input-field" value={form.price} onChange={(e) => update('price', e.target.value)} /></div>
           </>}
         </div>
+        
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">Cover Image</label>
+          <div className="relative">
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={(e) => setCoverImage(e.target.files[0])} 
+              className="hidden" 
+              id="coverUpload" 
+            />
+            <label htmlFor="coverUpload" className="flex items-center justify-center gap-2 input-field cursor-pointer border-dashed border-2 hover:border-emerald-500/50 transition-colors">
+              <UploadCloud className="w-5 h-5 text-gray-400" />
+              <span className="text-gray-400">{coverImage ? coverImage.name : 'Choose a cover image...'}</span>
+            </label>
+          </div>
+        </div>
+
         <div><label className="block text-sm text-gray-400 mb-1">Description</label><textarea className="input-field h-24 resize-none" value={form.description} onChange={(e) => update('description', e.target.value)} /></div>
         <div className="flex gap-3 pt-2">
           <button type="submit" disabled={loading} className="btn-primary">{loading ? 'Adding...' : 'Add Book'}</button>
