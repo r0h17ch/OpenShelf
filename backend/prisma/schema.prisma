@@ -94,6 +94,7 @@ model User {
   address        String?
   fineBalance    Float    @default(0)
   totalFinesPaid Float    @default(0)
+  avatarUrl      String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

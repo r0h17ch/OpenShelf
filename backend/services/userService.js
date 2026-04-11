@@ -44,18 +44,19 @@ async function addAdmin(data) {
 }
 
 async function updateProfile(userId, data) {
-    const { name, phone, address } = data;
+    const { name, phone, address, avatarUrl } = data;
     const updateData = {};
     if (name) updateData.name = name;
     if (phone !== undefined) updateData.phone = phone;
     if (address !== undefined) updateData.address = address;
+    if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
 
     return prisma.user.update({
         where: { id: userId },
         data: updateData,
         select: {
             id: true, email: true, name: true, role: true, isPremium: true,
-            phone: true, address: true, fineBalance: true, totalFinesPaid: true,
+            phone: true, address: true, fineBalance: true, totalFinesPaid: true, avatarUrl: true
         },
     });
 }

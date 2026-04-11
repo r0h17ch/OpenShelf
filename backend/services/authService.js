@@ -56,9 +56,25 @@ async function login({ email, password }) {
  * Get user profile by ID.
  */
 async function getProfile(userId) {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findUnique({ 
+        where: { id: userId },
+        include: {
+            _count: {
+                select: {
+                    circulations: {
+                        where: { type: 'BORROW' }
+                    }
+                }
+            }
+        }
+    });
     if (!user) throw new AppError('User not found.', 404);
-    return sanitizeUser(user);
+    
+    // Attach metric dynamically
+    const safeUser = sanitizeUser(user);
+    safeUser.borrowedCount = user._count.circulations;
+    
+    return safeUser;
 }
 
 // --- Helpers ---
