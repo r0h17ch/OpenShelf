@@ -45,5 +45,14 @@ async function markPaid(req, res, next) {
     }
 }
 
-module.exports = { myFines, calculate, pay, allFines, markPaid };
+async function haltActiveFine(req, res, next) {
+    try {
+        const result = await fineService.haltFine(req.params.id);
+        res.json({ success: true, data: result });
+    } catch (err) {
+        next(err);
+    }
+}
+
+module.exports = { myFines, calculate, pay, allFines, markPaid, haltActiveFine };
 

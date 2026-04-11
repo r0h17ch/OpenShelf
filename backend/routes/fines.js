@@ -14,6 +14,7 @@ router.post('/:id/pay', fineController.pay);
 // Admin routes
 router.get('/all', requireAdmin, fineController.allFines);
 router.put('/mark-paid/:id', requireAdmin, fineController.markPaid);
+router.put('/halt/:id', requireAdmin, fineController.haltActiveFine);
 
 module.exports = router;
 

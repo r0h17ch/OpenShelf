@@ -165,17 +165,25 @@ async function processRapidFines() {
         where: {
             type: 'BORROW',
             returnDate: null,
+            fineHalted: false,
         },
         include: { fines: true, book: true },
     });
 
     const results = [];
+    const AUTO_HALT_LIMIT = 100;
 
     for (const circ of activeCirculations) {
         const elapsedSeconds = Math.floor((now - circ.borrowDate) / 1000);
         const totalGeneratedPenalty = Math.floor(elapsedSeconds / 10) * 1;
         const totalPaidAmount = circ.fines.filter(f => f.isPaid).reduce((sum, f) => sum + f.amount, 0);
-        const expectedCurrentFine = totalGeneratedPenalty - totalPaidAmount;
+        let expectedCurrentFine = totalGeneratedPenalty - totalPaidAmount;
+
+        let needsHalt = false;
+        if (expectedCurrentFine >= AUTO_HALT_LIMIT) {
+            expectedCurrentFine = AUTO_HALT_LIMIT;
+            needsHalt = true;
+        }
 
         if (expectedCurrentFine > 0) {
             const existingFine = circ.fines.find(f => !f.isPaid);
@@ -199,9 +207,33 @@ async function processRapidFines() {
                 results.push({ circulationId: circ.id, amount: expectedCurrentFine, action: 'created' });
             }
         }
+        
+        if (needsHalt) {
+            await prisma.circulation.update({
+                where: { id: circ.id },
+                data: { fineHalted: true }
+            });
+        }
     }
     
     return { processed: results.length, details: results };
 }
 
-module.exports = { getUserFines, calculateOverdueFines, payFine, getAllFines, markFinePaid, processRapidFines };
+/**
+ * Manually halt further fines for a circulation
+ */
+async function haltFine(circulationId) {
+    const circulation = await prisma.circulation.findUnique({
+        where: { id: circulationId }
+    });
+    
+    if (!circulation) throw new AppError('Circulation not found.', 404);
+    if (circulation.fineHalted) throw new AppError('Fines are already halted for this item.', 400);
+
+    return prisma.circulation.update({
+        where: { id: circulationId },
+        data: { fineHalted: true }
+    });
+}
+
+module.exports = { getUserFines, calculateOverdueFines, payFine, getAllFines, markFinePaid, processRapidFines, haltFine };
