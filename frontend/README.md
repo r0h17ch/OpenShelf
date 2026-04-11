@@ -12,6 +12,8 @@ npm run dev
 
 Frontend runs on `http://localhost:5173`. The Vite dev server proxies `/api` requests to `http://localhost:3000`.
 
+For Vercel deployments, set `VITE_API_BASE_URL` to your Railway backend URL so the browser calls the correct API origin.
+
 ## Environment Variables
 
 | Variable | Default | Description |

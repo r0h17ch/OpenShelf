@@ -1,41 +1,57 @@
-const { PrismaClient } = require('@prisma/client');
 const path = require('path');
 const crypto = require('crypto');
 const { AppError } = require('../middlewares/errorHandler');
 const { supabaseAdmin } = require('../config/supabaseClient');
 const { generateEmbedding } = require('./ragService');
 
-const prisma = new PrismaClient();
+function normalizeBook(book) {
+    if (!book) return null;
+
+    return {
+        ...book,
+        coverUrl: book.coverUrl ?? book.cover_url ?? null,
+        pdfUrl: book.pdfUrl ?? book.pdf_url ?? null,
+        embedding: book.embedding ?? null,
+    };
+}
+
+function pickBookFields(data = {}) {
+    return {
+        title: data.title,
+        author: data.author,
+        cover_url: data.coverUrl ?? data.cover_url ?? null,
+        pdf_url: data.pdfUrl ?? data.pdf_url ?? null,
+        embedding: data.embedding ?? null,
+    };
+}
 
 /**
  * List books with optional search, filter, sort, and pagination.
  */
 async function listBooks({ search, status, genre, sort, page = 1, limit = 20 }) {
-    const where = {};
+    let query = supabaseAdmin.from('books').select('*', { count: 'exact' });
 
     if (search) {
-        where.OR = [
-            { title: { contains: search, mode: 'insensitive' } },
-            { author: { contains: search, mode: 'insensitive' } },
-            { isbn: { contains: search, mode: 'insensitive' } },
-        ];
+        const escaped = search.replace(/"/g, '""');
+        query = query.or(`title.ilike.%${escaped}%,author.ilike.%${escaped}%`);
     }
 
-    if (status) where.status = status;
-    if (genre) where.genre = { contains: genre, mode: 'insensitive' };
+    if (sort === 'author') {
+        query = query.order('author', { ascending: true });
+    } else {
+        query = query.order('title', { ascending: true });
+    }
 
-    // Sort options
-    let orderBy = { createdAt: 'desc' };
-    if (sort === 'title') orderBy = { title: 'asc' };
-    else if (sort === 'author') orderBy = { author: 'asc' };
-    else if (sort === 'quantity') orderBy = { physicalCount: 'desc' };
-    else if (sort === 'dateAdded') orderBy = { createdAt: 'desc' };
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    const { data, error, count } = await query.range(from, to);
 
-    const skip = (page - 1) * limit;
-    const [books, total] = await Promise.all([
-        prisma.book.findMany({ where, orderBy, skip, take: limit }),
-        prisma.book.count({ where }),
-    ]);
+    if (error) {
+        throw new AppError(`Failed to load books: ${error.message}`, 500);
+    }
+
+    const books = (data || []).map(normalizeBook);
+    const total = count || 0;
 
     return { books, total, page, totalPages: Math.ceil(total / limit) };
 }
@@ -44,50 +60,82 @@ async function listBooks({ search, status, genre, sort, page = 1, limit = 20 }) 
  * Get single book by ID.
  */
 async function getBookById(id) {
-    const book = await prisma.book.findUnique({
-        where: { id },
-        include: {
-            circulations: { where: { returnDate: null }, select: { id: true, userId: true, type: true, dueDate: true } },
-            reservations: { where: { status: 'PENDING' }, orderBy: { position: 'asc' } },
-        },
-    });
-    if (!book) throw new AppError('Book not found.', 404);
-    return book;
+    const { data, error } = await supabaseAdmin
+        .from('books')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+    if (error) {
+        throw new AppError(`Failed to load book: ${error.message}`, 500);
+    }
+
+    if (!data) throw new AppError('Book not found.', 404);
+    return normalizeBook(data);
 }
 
 /**
  * Create a new book (Admin only).
  */
 async function createBook(data) {
-    const existing = await prisma.book.findUnique({ where: { isbn: data.isbn } });
-    if (existing) throw new AppError('A book with this ISBN already exists.', 409);
+    const payload = pickBookFields(data);
 
-    // Determine initial status
-    if (data.physicalCount === 0 && data.isDigital) {
-        data.status = 'DIGITAL_ONLY';
-    } else if (data.physicalCount > 0) {
-        data.status = 'AVAILABLE';
+    if (!payload.title || !payload.author) {
+        throw new AppError('Title and author are required.', 400);
     }
 
-    return prisma.book.create({ data });
+    const { data: created, error } = await supabaseAdmin
+        .from('books')
+        .insert(payload)
+        .select('*')
+        .single();
+
+    if (error) {
+        throw new AppError(`Failed to create book: ${error.message}`, 500);
+    }
+
+    return normalizeBook(created);
 }
 
 /**
  * Update a book (Admin only).
  */
 async function updateBook(id, data) {
-    const book = await prisma.book.findUnique({ where: { id } });
-    if (!book) throw new AppError('Book not found.', 404);
-    return prisma.book.update({ where: { id }, data });
+    const payload = pickBookFields(data);
+    Object.keys(payload).forEach((key) => payload[key] === undefined && delete payload[key]);
+
+    const { data: updated, error } = await supabaseAdmin
+        .from('books')
+        .update(payload)
+        .eq('id', id)
+        .select('*')
+        .maybeSingle();
+
+    if (error) {
+        throw new AppError(`Failed to update book: ${error.message}`, 500);
+    }
+
+    if (!updated) throw new AppError('Book not found.', 404);
+    return normalizeBook(updated);
 }
 
 /**
  * Delete a book (Admin only).
  */
 async function deleteBook(id) {
-    const book = await prisma.book.findUnique({ where: { id } });
-    if (!book) throw new AppError('Book not found.', 404);
-    return prisma.book.delete({ where: { id } });
+    const { data, error } = await supabaseAdmin
+        .from('books')
+        .delete()
+        .eq('id', id)
+        .select('*')
+        .maybeSingle();
+
+    if (error) {
+        throw new AppError(`Failed to delete book: ${error.message}`, 500);
+    }
+
+    if (!data) throw new AppError('Book not found.', 404);
+    return normalizeBook(data);
 }
 
 /**
@@ -119,7 +167,7 @@ async function uploadCoverBook(id, coverFile) {
         .update({ cover_url: publicUrlData.publicUrl })
         .eq('id', id)
         .select('*')
-        .single();
+        .maybeSingle();
 
     if (error) {
         await deleteObjectIfExists('book-covers', coverStoragePath);
@@ -130,7 +178,7 @@ async function uploadCoverBook(id, coverFile) {
         throw new AppError(`Failed to update cover URL: ${error.message}`, 500);
     }
 
-    return data;
+    return normalizeBook(data);
 }
 
 function buildStoragePath(prefix, originalName = '') {
@@ -212,7 +260,7 @@ async function uploadCharityBookToSupabase({ title, author, description, pdfFile
 
         if (error) throw new AppError(`Failed to insert book: ${error.message}`, 500);
 
-        return data;
+        return normalizeBook(data);
     } catch (err) {
         await Promise.all([
             deleteObjectIfExists('pdfs', pdfStoragePath),
@@ -226,25 +274,14 @@ async function uploadCharityBookToSupabase({ title, author, description, pdfFile
  * Recalculate book availability status based on physical count and active borrows.
  */
 async function updateBookStatus(bookId) {
-    const book = await prisma.book.findUnique({ where: { id: bookId } });
-    if (!book) return;
+    const { data, error } = await supabaseAdmin
+        .from('books')
+        .select('*')
+        .eq('id', bookId)
+        .maybeSingle();
 
-    const activeBorrows = await prisma.circulation.count({
-        where: { bookId, type: 'BORROW', returnDate: null },
-    });
-
-    const pendingReservations = await prisma.reservation.count({
-        where: { bookId, status: 'PENDING' },
-    });
-
-    let newStatus = 'AVAILABLE';
-    if (book.physicalCount === 0 && book.isDigital) {
-        newStatus = 'DIGITAL_ONLY';
-    } else if (activeBorrows >= book.physicalCount) {
-        newStatus = pendingReservations > 0 ? 'RESERVED' : 'BORROWED';
-    }
-
-    await prisma.book.update({ where: { id: bookId }, data: { status: newStatus } });
+    if (error || !data) return null;
+    return normalizeBook(data);
 }
 
 module.exports = {
