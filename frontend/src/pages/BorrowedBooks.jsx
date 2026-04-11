@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 import api from '../api/axios';
 
 // Import icons
-import { RefreshCw, Undo2 } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 export default function BorrowedBooks() {
 
@@ -40,22 +40,6 @@ export default function BorrowedBooks() {
     fetchData();
   }, []);
 
-  // Function to return a book
-  const handleReturn = async (id) => {
-    try {
-      // API call to return book
-      await api.post('/circulation/return', { circulationId: id });
-
-      // Success message
-      toast.success('Book returned!');
-
-      // Refresh data
-      fetchData();
-    } catch (err) {
-      // Error message
-      toast.error(err.response?.data?.message || 'Return failed');
-    }
-  };
 
   // Function to renew a book
   const handleRenew = async (id) => {
@@ -144,8 +128,8 @@ export default function BorrowedBooks() {
                   )}
                 </td>
 
-                {/* Action buttons */}
-                <td className="p-4 text-right space-x-2">
+                {/* Action buttons - only Renew for users, Return is admin-only */}
+                <td className="p-4 text-right">
 
                   {/* Renew button */}
                   <button
@@ -153,14 +137,6 @@ export default function BorrowedBooks() {
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 transition-all"
                   >
                     <RefreshCw className="w-3.5 h-3.5" /> Renew
-                  </button>
-
-                  {/* Return button */}
-                  <button
-                    onClick={() => handleReturn(c.id)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all"
-                  >
-                    <Undo2 className="w-3.5 h-3.5" /> Return
                   </button>
                 </td>
               </tr>
