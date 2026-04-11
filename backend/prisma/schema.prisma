@@ -108,6 +108,7 @@ model User {
   suggestionVotes      SuggestionVote[]
   reportedIssues       InventoryIssue[]     @relation("ReportedIssues")
   resolvedIssues       InventoryIssue[]     @relation("ResolvedIssues")
+  reviews              Review[]
 
   @@map("users")
 }
@@ -140,6 +141,7 @@ model Book {
   transactions    Transaction[]
   donatedBooks    BookDonation[]  @relation("DonatedBook")
   inventoryIssues InventoryIssue[]
+  reviews         Review[]
 
   @@map("books")
 }
@@ -313,4 +315,21 @@ model InventoryIssue {
   resolvedBy User? @relation("ResolvedIssues", fields: [resolvedById], references: [id])
 
   @@map("inventory_issues")
+}
+
+// ───────────── Ratings & Reviews ─────────────
+
+model Review {
+  id        String   @id @default(uuid())
+  bookId    String
+  userId    String
+  rating    Int
+  comment   String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  book Book @relation(fields: [bookId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("reviews")
 }

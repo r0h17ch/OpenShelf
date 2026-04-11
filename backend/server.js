@@ -3,6 +3,9 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const logger = require('./utils/logger');
 
 const { errorHandler } = require('./middlewares/errorHandler');
 
@@ -20,14 +23,30 @@ const suggestionRoutes = require('./routes/suggestions');
 const inventoryRoutes = require('./routes/inventory');
 const reportRoutes = require('./routes/reports');
 const userRoutes = require('./routes/users');
+const reviewRoutes = require('./routes/reviews');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --------------- Global Middleware ---------------
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Rate Limiting
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 200, 
+    message: { success: false, message: 'Too many requests, try again later.' }
+});
+app.use('/api', globalLimiter);
+
+// Request Logging Middleware
+app.use((req, res, next) => {
+    logger.info(`Incoming ${req.method} request to ${req.originalUrl}`);
+    next();
+});
 
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -51,13 +70,14 @@ app.use('/api/suggestions', suggestionRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 // --------------- Error Handler (must be last) ---------------
 app.use(errorHandler);
 
 // --------------- Start Server ---------------
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 OpenShelf backend running on port ${PORT}`);
+  logger.info(`🚀 OpenShelf backend running on port ${PORT}`);
 });
 
 module.exports = app;

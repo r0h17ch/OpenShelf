@@ -13,9 +13,8 @@ import { toast } from 'react-toastify';
 // Import axios instance
 import api from '../api/axios';
 
-// Import icons
-import { BookOpen, Search, Filter, BookCopy, Bookmark, UploadCloud } from 'lucide-react';
-
+import { BookOpen, Search, Filter, BookCopy, Bookmark, UploadCloud, MessageSquare } from 'lucide-react';
+import ReviewsModal from '../components/ReviewsModal';
 export default function Books() {
   const dispatch = useDispatch(); // used to dispatch Redux actions
 
@@ -31,6 +30,9 @@ export default function Books() {
   // State for genre filter
   const [genreFilter, setGenreFilter] = useState('');
   const [dragOverId, setDragOverId] = useState(null);
+
+  // State for reviews modal
+  const [selectedBookForReviews, setSelectedBookForReviews] = useState(null);
 
   // Fetch books when component loads
   useEffect(() => {
@@ -261,6 +263,15 @@ export default function Books() {
                 >
                   <Bookmark className="w-3.5 h-3.5" /> Reserve
                 </button>
+                
+                {/* Reviews Button */}
+                <button
+                  onClick={() => setSelectedBookForReviews(book)}
+                  className="flex items-center justify-center p-2 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-all"
+                  title="View Reviews"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                </button>
               </div>
             </div>
           </div>
@@ -272,6 +283,14 @@ export default function Books() {
         <div className="text-center py-12 text-gray-500">
           No books found matching your search.
         </div>
+      )}
+
+      {/* Render Reviews Modal dynamically if selected */}
+      {selectedBookForReviews && (
+          <ReviewsModal 
+             book={selectedBookForReviews} 
+             onClose={() => setSelectedBookForReviews(null)} 
+          />
       )}
     </div>
   );

@@ -1,28 +1,31 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import Layout from './components/Layout';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Books from './pages/Books';
-import AddBook from './pages/AddBook';
-import BorrowedBooks from './pages/BorrowedBooks';
-import AllBorrowedBooks from './pages/AllBorrowedBooks';
-import MyReservations from './pages/MyReservations';
-import MyFines from './pages/MyFines';
-import ManageFines from './pages/ManageFines';
-import MyTransactions from './pages/MyTransactions';
-import AllTransactions from './pages/AllTransactions';
-import BookSuggestions from './pages/BookSuggestions';
-import SuggestBook from './pages/SuggestBook';
-import DonateBook from './pages/DonateBook';
-import MyDonations from './pages/MyDonations';
-import ManageDonations from './pages/ManageDonations';
-import Reports from './pages/Reports';
-import InventoryIssues from './pages/InventoryIssues';
-import Users from './pages/Users';
-import Profile from './pages/Profile';
-import RagChatbot from './pages/RagChatbot';
+import { Suspense, lazy } from 'react';
+import ErrorBoundary from './components/ErrorBoundary';
+
+const Layout = lazy(() => import('./components/Layout'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Books = lazy(() => import('./pages/Books'));
+const AddBook = lazy(() => import('./pages/AddBook'));
+const BorrowedBooks = lazy(() => import('./pages/BorrowedBooks'));
+const AllBorrowedBooks = lazy(() => import('./pages/AllBorrowedBooks'));
+const MyReservations = lazy(() => import('./pages/MyReservations'));
+const MyFines = lazy(() => import('./pages/MyFines'));
+const ManageFines = lazy(() => import('./pages/ManageFines'));
+const MyTransactions = lazy(() => import('./pages/MyTransactions'));
+const AllTransactions = lazy(() => import('./pages/AllTransactions'));
+const BookSuggestions = lazy(() => import('./pages/BookSuggestions'));
+const SuggestBook = lazy(() => import('./pages/SuggestBook'));
+const DonateBook = lazy(() => import('./pages/DonateBook'));
+const MyDonations = lazy(() => import('./pages/MyDonations'));
+const ManageDonations = lazy(() => import('./pages/ManageDonations'));
+const Reports = lazy(() => import('./pages/Reports'));
+const InventoryIssues = lazy(() => import('./pages/InventoryIssues'));
+const Users = lazy(() => import('./pages/Users'));
+const Profile = lazy(() => import('./pages/Profile'));
+const RagChatbot = lazy(() => import('./pages/RagChatbot'));
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { isAuthenticated, user } = useSelector((state) => state.auth);
@@ -33,35 +36,39 @@ function ProtectedRoute({ children, adminOnly = false }) {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+    <ErrorBoundary>
+      <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-gray-500">Loading modules...</div>}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
 
-      <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="books" element={<Books />} />
-        <Route path="books/add" element={<ProtectedRoute adminOnly><AddBook /></ProtectedRoute>} />
-        <Route path="borrowed" element={<BorrowedBooks />} />
-        <Route path="borrowed/all" element={<ProtectedRoute adminOnly><AllBorrowedBooks /></ProtectedRoute>} />
-        <Route path="reservations" element={<MyReservations />} />
-        <Route path="fines" element={<MyFines />} />
-        <Route path="fines/manage" element={<ProtectedRoute adminOnly><ManageFines /></ProtectedRoute>} />
-        <Route path="transactions" element={<MyTransactions />} />
-        <Route path="transactions/all" element={<ProtectedRoute adminOnly><AllTransactions /></ProtectedRoute>} />
-        <Route path="suggestions" element={<BookSuggestions />} />
-        <Route path="suggestions/new" element={<SuggestBook />} />
-        <Route path="donations/new" element={<DonateBook />} />
-        <Route path="donations" element={<MyDonations />} />
-        <Route path="donations/manage" element={<ProtectedRoute adminOnly><ManageDonations /></ProtectedRoute>} />
-        <Route path="reports" element={<ProtectedRoute adminOnly><Reports /></ProtectedRoute>} />
-        <Route path="inventory" element={<ProtectedRoute adminOnly><InventoryIssues /></ProtectedRoute>} />
-        <Route path="users" element={<ProtectedRoute adminOnly><Users /></ProtectedRoute>} />
-        <Route path="profile" element={<Profile />} />
-        <Route path="rag" element={<RagChatbot />} />
-      </Route>
+          <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="books" element={<Books />} />
+            <Route path="books/add" element={<ProtectedRoute adminOnly><AddBook /></ProtectedRoute>} />
+            <Route path="borrowed" element={<BorrowedBooks />} />
+            <Route path="borrowed/all" element={<ProtectedRoute adminOnly><AllBorrowedBooks /></ProtectedRoute>} />
+            <Route path="reservations" element={<MyReservations />} />
+            <Route path="fines" element={<MyFines />} />
+            <Route path="fines/manage" element={<ProtectedRoute adminOnly><ManageFines /></ProtectedRoute>} />
+            <Route path="transactions" element={<MyTransactions />} />
+            <Route path="transactions/all" element={<ProtectedRoute adminOnly><AllTransactions /></ProtectedRoute>} />
+            <Route path="suggestions" element={<BookSuggestions />} />
+            <Route path="suggestions/new" element={<SuggestBook />} />
+            <Route path="donations/new" element={<DonateBook />} />
+            <Route path="donations" element={<MyDonations />} />
+            <Route path="donations/manage" element={<ProtectedRoute adminOnly><ManageDonations /></ProtectedRoute>} />
+            <Route path="reports" element={<ProtectedRoute adminOnly><Reports /></ProtectedRoute>} />
+            <Route path="inventory" element={<ProtectedRoute adminOnly><InventoryIssues /></ProtectedRoute>} />
+            <Route path="users" element={<ProtectedRoute adminOnly><Users /></ProtectedRoute>} />
+            <Route path="profile" element={<Profile />} />
+            <Route path="rag" element={<RagChatbot />} />
+          </Route>
 
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </Suspense>
+    </ErrorBoundary>
   );
 }
