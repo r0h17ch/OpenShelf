@@ -44,7 +44,7 @@ async function login({ email, password }) {
             _count: {
                 select: {
                     circulations: {
-                        where: { type: 'BORROW' }
+                        where: { type: 'BORROW', returnDate: null }
                     }
                 }
             }
