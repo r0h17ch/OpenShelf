@@ -87,7 +87,6 @@ enum InventoryIssueStatus {
 model User {
   id             String   @id @default(uuid())
   email          String   @unique
-  password       String
   name           String
   role           Role     @default(USER)
   isPremium      Boolean  @default(false)

@@ -28,4 +28,19 @@ async function updateProfile(req, res, next) {
     } catch (err) { next(err); }
 }
 
-module.exports = { getAllUsers, addUser, addAdmin, updateProfile };
+async function getMe(req, res, next) {
+    try {
+        const user = await userService.getProfileByAuthId(req.user.id);
+        res.json({ success: true, data: user });
+    } catch (err) { next(err); }
+}
+
+async function bootstrapProfile(req, res, next) {
+    try {
+        const { name, phone, address } = req.body || {};
+        const user = await userService.ensureUserProfileFromAuth(req.user, { name, phone, address });
+        res.status(201).json({ success: true, data: user });
+    } catch (err) { next(err); }
+}
+
+module.exports = { getAllUsers, addUser, addAdmin, updateProfile, getMe, bootstrapProfile };

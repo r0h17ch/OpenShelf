@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { supabase } from '../supabaseClient';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -8,8 +9,9 @@ const api = axios.create({
 });
 
 // Attach JWT token to every request
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+api.interceptors.request.use(async (config) => {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -19,9 +21,9 @@ api.interceptors.request.use((config) => {
 // Handle 401 globally
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
+      await supabase.auth.signOut();
       localStorage.removeItem('user');
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';

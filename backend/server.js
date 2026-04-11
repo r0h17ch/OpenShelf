@@ -10,7 +10,6 @@ const fineService = require('./services/fineService');
 const { errorHandler } = require('./middlewares/errorHandler');
 
 // Route imports
-const authRoutes = require('./routes/auth');
 const bookRoutes = require('./routes/books');
 const circulationRoutes = require('./routes/circulation');
 const fineRoutes = require('./routes/fines');
@@ -82,7 +81,6 @@ app.get('/api/health', (_req, res) => {
 });
 
 // --------------- API Routes ---------------
-app.use('/api/auth', authRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/circulation', circulationRoutes);
 app.use('/api/fines', fineRoutes);

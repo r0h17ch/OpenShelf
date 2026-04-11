@@ -1,5 +1,4 @@
 const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
@@ -15,13 +14,11 @@ async function main() {
     console.log('  ✓ Org:', org.domainName);
 
     // --- Seed Admin User ---
-    const adminPassword = await bcrypt.hash('admin123', 10);
     const admin = await prisma.user.upsert({
         where: { email: 'admin@openshelf.dev' },
         update: {},
         create: {
             email: 'admin@openshelf.dev',
-            password: adminPassword,
             name: 'Admin User',
             role: 'ADMIN',
             isPremium: true,
@@ -30,13 +27,11 @@ async function main() {
     console.log('  ✓ Admin:', admin.email);
 
     // --- Seed Regular User ---
-    const userPassword = await bcrypt.hash('user123', 10);
     const user = await prisma.user.upsert({
         where: { email: 'ayan@iiitk.ac.in' },
         update: {},
         create: {
             email: 'ayan@iiitk.ac.in',
-            password: userPassword,
             name: 'Ayan',
             role: 'USER',
             isPremium: true, // Domain-based premium
@@ -229,4 +224,3 @@ main()
     .finally(async () => {
         await prisma.$disconnect();
     });
-
