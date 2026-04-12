@@ -79,6 +79,7 @@ const authSlice = createSlice({
       .addCase(registerUser.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
       .addCase(fetchMe.fulfilled, (state, action) => {
         state.user = action.payload.user || action.payload;
+        localStorage.setItem('user', JSON.stringify(state.user));
       });
   },
 });

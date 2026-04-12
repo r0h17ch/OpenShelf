@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import api from '../api/axios';
@@ -9,6 +9,11 @@ export default function Profile() {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const [editing, setEditing] = useState(false);
+
+  // Always fetch fresh user data on mount so borrowedCount (and rank) reflects DB reality
+  useEffect(() => {
+    dispatch(fetchMe());
+  }, [dispatch]);
   
   const [form, setForm] = useState({ 
     name: user?.name || '', 
