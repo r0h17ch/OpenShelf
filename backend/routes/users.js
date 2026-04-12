@@ -6,6 +6,8 @@ const userController = require('../controllers/userController');
 router.use(authenticate);
 
 // User routes
+router.get('/me', userController.getMe);
+router.post('/bootstrap-profile', userController.bootstrapProfile);
 router.put('/update-profile', userController.updateProfile);
 
 // Admin routes

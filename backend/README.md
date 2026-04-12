@@ -1,6 +1,6 @@
 # OpenShelf Backend
 
-Node.js + Express API server with Prisma ORM, PostgreSQL, pgvector, and Redis.
+Node.js + Express API server with Supabase-backed book storage, Prisma-backed legacy modules, and Redis.
 
 ## Setup
 
@@ -23,7 +23,10 @@ npm run dev
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | `postgresql://...` | PostgreSQL connection string |
+| `SUPABASE_URL` | — | Supabase project URL |
+| `SUPABASE_SERVICE_KEY` | — | Supabase service role key |
+| `CORS_ORIGIN` | `http://localhost:5173` | Comma-separated allowed frontend origins |
+| `DATABASE_URL` | `postgresql://...` | PostgreSQL connection string for Prisma-backed legacy routes |
 | `REDIS_URL` | `redis://redis:6379` | Redis connection string |
 | `JWT_SECRET` | `super-secret-dev-key` | JWT signing secret |
 | `PORT` | `3000` | Server port |
@@ -92,6 +95,7 @@ backend/
 - `POST /` — Add book (admin)
 - `PUT /:id` — Update book (admin)
 - `DELETE /:id` — Delete book (admin)
+- `POST /upload` — Upload PDF + optional cover to Supabase and create a book
 
 ### Circulation (`/api/circulation`)
 - `POST /borrow` — Borrow a physical book

@@ -5,6 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ───────────── Enums ─────────────
@@ -86,7 +87,6 @@ enum InventoryIssueStatus {
 model User {
   id             String   @id @default(uuid())
   email          String   @unique
-  password       String
   name           String
   role           Role     @default(USER)
   isPremium      Boolean  @default(false)
@@ -130,6 +130,7 @@ model Book {
   shelfLocation String?
   status        BookStatus @default(AVAILABLE)
   coverUrl      String?
+  thumbnailUrl  String?
   pdfUrl        String?
   price         Float?
   rentPrice     Float?

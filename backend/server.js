@@ -2,7 +2,6 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const logger = require('./utils/logger');
@@ -11,7 +10,6 @@ const fineService = require('./services/fineService');
 const { errorHandler } = require('./middlewares/errorHandler');
 
 // Route imports
-const authRoutes = require('./routes/auth');
 const bookRoutes = require('./routes/books');
 const circulationRoutes = require('./routes/circulation');
 const fineRoutes = require('./routes/fines');
@@ -28,10 +26,36 @@ const reviewRoutes = require('./routes/reviews');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const allowedOrigins = (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+if (process.env.NODE_ENV !== 'production') {
+    allowedOrigins.push('http://localhost:5173', 'http://127.0.0.1:5173');
+}
+
+app.set('trust proxy', 1);
 
 // --------------- Global Middleware ---------------
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+    origin(origin, cb) {
+        if (!origin) return cb(null, true);
+        if (allowedOrigins.length === 0) {
+            if (process.env.NODE_ENV === 'production') {
+                return cb(new Error('CORS_ORIGIN must be configured in production.'));
+            }
+            return cb(null, true);
+        }
+        if (allowedOrigins.includes(origin)) {
+            return cb(null, true);
+        }
+        return cb(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -39,7 +63,9 @@ app.use(express.urlencoded({ extended: true }));
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, 
     max: 200, 
-    message: { success: false, message: 'Too many requests, try again later.' }
+    message: { success: false, message: 'Too many requests, try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
 });
 app.use('/api', globalLimiter);
 
@@ -49,16 +75,12 @@ app.use((req, res, next) => {
     next();
 });
 
-// Serve uploaded files statically
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
 // --------------- Health Check ---------------
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // --------------- API Routes ---------------
-app.use('/api/auth', authRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/circulation', circulationRoutes);
 app.use('/api/fines', fineRoutes);
