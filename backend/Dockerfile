@@ -25,6 +25,7 @@ COPY --from=builder /app/services ./services
 COPY --from=builder /app/middlewares ./middlewares
 COPY --from=builder /app/routes ./routes
 COPY --from=builder /app/utils ./utils
+COPY --from=builder /app/config ./config
 
 RUN mkdir -p uploads
 

@@ -3,7 +3,7 @@ import api from '../../api/axios';
 
 export const fetchBooks = createAsyncThunk('books/fetchAll', async (_, { rejectWithValue }) => {
   try {
-    const { data } = await api.get('/books');
+    const { data } = await api.get('/books?limit=1000');
     return data.data?.books || data.data || data.books || data;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to fetch books');
