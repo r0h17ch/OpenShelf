@@ -7,14 +7,19 @@ const { generateEmbedding } = require('./ragService');
 function normalizeBook(book) {
     if (!book) return null;
 
+    const pdfUrl = book.pdfUrl ?? book.pdf_url ?? null;
+    const isDigital = book.isDigital ?? book.is_digital ?? false;
+    const format = book.format ?? (isDigital || !!pdfUrl ? 'digital' : 'physical');
+
     return {
         ...book,
         coverUrl: book.coverUrl ?? book.cover_url ?? null,
         thumbnailUrl: book.thumbnailUrl ?? book.thumbnail_url ?? null,
-        pdfUrl: book.pdfUrl ?? book.pdf_url ?? null,
-        format: book.format ?? (book.isDigital ? 'digital' : 'physical'),
+        pdfUrl,
+        isDigital: !!isDigital || format === 'digital' || format === 'hybrid',
+        format,
         shelfLocation: book.shelfLocation ?? book.shelf_location ?? null,
-        availableCopies: book.availableCopies ?? book.available_copies ?? book.physicalCount ?? 0,
+        availableCopies: book.availableCopies ?? book.available_copies ?? book.physicalCount ?? book.physical_count ?? 0,
         isPremium: book.isPremium ?? book.is_premium ?? false,
         embedding: book.embedding ?? null,
     };
@@ -24,10 +29,13 @@ function pickBookFields(data = {}) {
     return {
         title: data.title,
         author: data.author,
+        isbn: data.isbn,
         coverUrl: data.coverUrl ?? data.cover_url ?? null,
         thumbnailUrl: data.thumbnailUrl ?? data.thumbnail_url ?? null,
         pdfUrl: data.pdfUrl ?? data.pdf_url ?? null,
         format: data.format,
+        isDigital: data.isDigital ?? data.is_digital,
+        is_digital: data.isDigital ?? data.is_digital,
         shelf_location: data.shelfLocation ?? data.shelf_location,
         available_copies: data.availableCopies ?? data.available_copies,
         is_premium: data.isPremium ?? data.is_premium,
@@ -35,11 +43,68 @@ function pickBookFields(data = {}) {
     };
 }
 
+function resolveBookFormat(book) {
+    if (!book) return 'physical';
+    const normalized = normalizeBook(book);
+    return normalized.format || 'physical';
+}
+
+function generateFallbackIsbn() {
+    const ts = Date.now();
+    const rand = crypto.randomInt(100000, 999999);
+    return `AUTO-${ts}-${rand}`;
+}
+
+function getDefaultValueForBookColumn(column, payload = {}) {
+    const nowIso = new Date().toISOString();
+
+    switch (column) {
+        case 'id':
+            return payload.id || crypto.randomUUID();
+        case 'isbn':
+            return payload.isbn || generateFallbackIsbn();
+        case 'title':
+            return payload.title || `Untitled-${Date.now()}`;
+        case 'author':
+            return payload.author || 'Unknown Author';
+        case 'format':
+            return 'digital';
+        case 'status':
+            return 'AVAILABLE';
+        case 'isDigital':
+        case 'is_digital':
+            return true;
+        case 'physicalCount':
+        case 'physical_count':
+            return 0;
+        case 'digitalCount':
+        case 'digital_count':
+            return 1;
+        case 'available_copies':
+        case 'availableCopies':
+            return 0;
+        case 'shelf_location':
+        case 'shelfLocation':
+            return 'DIGITAL-SHELF';
+        case 'is_premium':
+        case 'isPremium':
+            return false;
+        case 'createdAt':
+        case 'created_at':
+        case 'updatedAt':
+        case 'updated_at':
+            return nowIso;
+        default:
+            return undefined;
+    }
+}
+
 async function insertBookWithSchemaFallback(basePayload) {
     let payload = { id: crypto.randomUUID(), ...basePayload };
     const triedMissingColumns = new Set();
+    const triedNullColumns = new Set();
 
-    for (let attempt = 0; attempt < 8; attempt += 1) {
+    for (let attempt = 0; attempt < 16; attempt += 1) {
         const { data, error } = await supabaseAdmin
             .from('books')
             .insert(payload)
@@ -49,17 +114,35 @@ async function insertBookWithSchemaFallback(basePayload) {
         if (!error) return data;
 
         const match = /Could not find the '([^']+)' column of 'books' in the schema cache/.exec(error.message || '');
-        if (!match) {
-            throw new AppError(`Failed to insert book: ${error.message}`, 500);
+        if (match) {
+            const missingColumn = match[1];
+            if (!Object.prototype.hasOwnProperty.call(payload, missingColumn) || triedMissingColumns.has(missingColumn)) {
+                throw new AppError(`Failed to insert book: ${error.message}`, 500);
+            }
+
+            triedMissingColumns.add(missingColumn);
+            delete payload[missingColumn];
+            continue;
         }
 
-        const missingColumn = match[1];
-        if (!Object.prototype.hasOwnProperty.call(payload, missingColumn) || triedMissingColumns.has(missingColumn)) {
-            throw new AppError(`Failed to insert book: ${error.message}`, 500);
+        const nullMatch = /null value in column "([^"]+)" of relation "books" violates not-null constraint/i.exec(error.message || '');
+        if (nullMatch) {
+            const nullColumn = nullMatch[1];
+            if (triedNullColumns.has(nullColumn)) {
+                throw new AppError(`Failed to insert book: ${error.message}`, 500);
+            }
+
+            const fallbackValue = getDefaultValueForBookColumn(nullColumn, payload);
+            if (fallbackValue === undefined || fallbackValue === null) {
+                throw new AppError(`Failed to insert book: ${error.message}`, 500);
+            }
+
+            payload[nullColumn] = fallbackValue;
+            triedNullColumns.add(nullColumn);
+            continue;
         }
 
-        triedMissingColumns.add(missingColumn);
-        delete payload[missingColumn];
+        throw new AppError(`Failed to insert book: ${error.message}`, 500);
     }
 
     throw new AppError('Failed to insert book: schema mismatch could not be resolved.', 500);
@@ -179,16 +262,11 @@ async function createBook(data) {
         throw new AppError('Title and author are required.', 400);
     }
 
-    const { data: created, error } = await supabaseAdmin
-        .from('books')
-        .insert(payload)
-        .select('*')
-        .single();
-
-    if (error) {
-        throw new AppError(`Failed to create book: ${error.message}`, 500);
-    }
-
+    const created = await insertBookWithSchemaFallback({
+        isbn: payload.isbn || generateFallbackIsbn(),
+        status: 'AVAILABLE',
+        ...payload,
+    });
     return normalizeBook(created);
 }
 
@@ -347,10 +425,17 @@ async function uploadCharityBookToSupabase({ title, author, description, pdfFile
         const inserted = await insertBookWithSchemaFallback({
             title,
             author,
+            isbn: generateFallbackIsbn(),
+            status: 'AVAILABLE',
             pdfUrl: pdfStoragePath,
+            pdf_url: pdfStoragePath,
             coverUrl: coverPublicUrl,
+            cover_url: coverPublicUrl,
             thumbnailUrl: coverPublicUrl,
+            thumbnail_url: coverPublicUrl,
             format: 'digital',
+            isDigital: true,
+            is_digital: true,
             available_copies: 0,
             is_premium: false,
             embedding: embeddingValue,
@@ -385,7 +470,7 @@ async function updateBookStatus(bookId) {
  */
 async function getDigitalReadUrl(bookId, userId) {
     const book = await getBookById(bookId);
-    const bookFormat = book.format;
+    const bookFormat = resolveBookFormat(book);
 
     if (!['digital', 'hybrid'].includes(bookFormat)) {
         throw new AppError('This book is not available for digital reading.', 400);
@@ -454,7 +539,7 @@ async function getDigitalReadUrl(bookId, userId) {
  */
 async function rentDigitalAccess(bookId, userId) {
     const book = await getBookById(bookId);
-    const bookFormat = book.format;
+    const bookFormat = resolveBookFormat(book);
 
     if (!['digital', 'hybrid'].includes(bookFormat)) {
         throw new AppError('This book is not available for digital rental.', 400);

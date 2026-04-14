@@ -11,6 +11,7 @@ const Register = lazy(() => import('./pages/Register'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Books = lazy(() => import('./pages/Books'));
 const BookDetails = lazy(() => import('./pages/BookDetails'));
+const BookReader = lazy(() => import('./pages/BookReader'));
 const AddBook = lazy(() => import('./pages/AddBook'));
 const BorrowedBooks = lazy(() => import('./pages/BorrowedBooks'));
 const AllBorrowedBooks = lazy(() => import('./pages/AllBorrowedBooks'));
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="books" element={<Books />} />
             <Route path="books/:id" element={<BookDetails />} />
+            <Route path="books/:id/read" element={<BookReader />} />
             <Route path="books/add" element={<ProtectedRoute adminOnly><AddBook /></ProtectedRoute>} />
             <Route path="borrowed" element={<BorrowedBooks />} />
             <Route path="borrowed/all" element={<ProtectedRoute adminOnly><AllBorrowedBooks /></ProtectedRoute>} />

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import api from '../api/axios';
-import { Bot, Send, User } from 'lucide-react';
+import { Bot, Send, User, X } from 'lucide-react';
 
-export default function RagChatbot() {
+export default function RagChatbot({ bookId = null, compact = false, onClose = null }) {
 
   // State to store chat messages (user + assistant)
   const [messages, setMessages] = useState([]);
@@ -35,7 +35,8 @@ export default function RagChatbot() {
 
     try {
       // API call to backend RAG (AI) system
-      const { data } = await api.post('/rag/ask', { question });
+      const payload = bookId ? { question, bookId } : { question };
+      const { data } = await api.post('/rag/ask', payload);
 
       // Add assistant response to chat
       setMessages(prev => [
@@ -68,17 +69,29 @@ export default function RagChatbot() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)]">
+    <div className={`flex flex-col ${compact ? 'h-[28rem]' : 'h-[calc(100vh-8rem)]'}`}>
 
       {/* Header section */}
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-100 flex items-center gap-3">
-          <Bot className="w-7 h-7 text-emerald-400" />
-          AI Library Assistant
-        </h1>
-        <p className="text-gray-500 mt-1">
-          Ask questions about books in the library catalog
+        <div className="flex items-center justify-between">
+          <h1 className={`${compact ? 'text-lg' : 'text-2xl'} font-bold text-gray-100 flex items-center gap-3`}>
+            <Bot className={`${compact ? 'w-5 h-5' : 'w-7 h-7'} text-emerald-400`} />
+            AI Library Assistant
+          </h1>
+          {onClose ? (
+            <button onClick={onClose} className="p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-gray-800/50">
+              <X className="w-4 h-4" />
+            </button>
+          ) : null}
+        </div>
+        <p className="text-gray-500 mt-1 text-sm">
+          {bookId ? 'Context: current book' : 'Global library mode'}
         </p>
+        {!compact && (
+          <p className="text-gray-500 mt-1">
+            Ask questions about books in the library catalog
+          </p>
+        )}
       </div>
 
       {/* Chat area */}
@@ -117,7 +130,7 @@ export default function RagChatbot() {
 
             {/* Message bubble */}
             <div
-              className={`max-w-[70%] px-4 py-3 rounded-2xl text-sm ${
+              className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm ${
                 msg.role === 'user'
                   ? 'bg-emerald-500/20 text-emerald-100 rounded-br-md'
                   : 'bg-gray-800/50 text-gray-300 rounded-bl-md'
@@ -165,7 +178,7 @@ export default function RagChatbot() {
           onKeyDown={(e) =>
             e.key === 'Enter' && !e.shiftKey && handleSend()
           } // send message on Enter
-          placeholder="Ask about books, authors, or recommendations..."
+          placeholder={bookId ? 'Ask about this book...' : 'Ask about books, authors, or recommendations...'}
           className="input-field flex-1"
           disabled={loading}
         />

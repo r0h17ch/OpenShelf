@@ -92,9 +92,7 @@ async function askQuestion(bookId, question, queryVector, topK = 5) {
     }
 
     const safeTopK = Math.max(1, Math.min(Number(topK) || 5, 12));
-
-    // If no query vector is provided, fall back to text search
-    if (!queryVector || queryVector.length === 0) {
+    const runTextSearch = async () => {
         const where = bookId
             ? { bookId, content: { contains: question, mode: 'insensitive' } }
             : { content: { contains: question, mode: 'insensitive' } };
@@ -115,45 +113,55 @@ async function askQuestion(bookId, question, queryVector, topK = 5) {
                 book: e.book ? { id: e.book.id, title: e.book.title, author: e.book.author } : null,
             })),
         };
+    };
+
+    // If no query vector is provided, fall back to text search
+    if (!queryVector || queryVector.length === 0) {
+        return runTextSearch();
     }
 
-    // Vector similarity search via pgvector
-    const vectorStr = `[${queryVector.join(',')}]`;
-    const vectorResults = bookId
-        ? await prisma.$queryRawUnsafe(
-            `SELECT e.id, e.content, e.book_id, b.title AS book_title, b.author AS book_author, e.vector <=> $1::vector AS distance
-             FROM embeddings e
-             LEFT JOIN books b ON b.id = e.book_id
-             WHERE e.book_id = $2
-             AND e.vector IS NOT NULL
-             ORDER BY distance ASC
-             LIMIT $3`,
-            vectorStr,
-            bookId,
-            safeTopK
-        )
-        : await prisma.$queryRawUnsafe(
-            `SELECT e.id, e.content, e.book_id, b.title AS book_title, b.author AS book_author, e.vector <=> $1::vector AS distance
-             FROM embeddings e
-             LEFT JOIN books b ON b.id = e.book_id
-             WHERE e.vector IS NOT NULL
-             ORDER BY distance ASC
-             LIMIT $2`,
-            vectorStr,
-            safeTopK
-        );
+    try {
+        // Vector similarity search via pgvector
+        const vectorStr = `[${queryVector.join(',')}]`;
+        const vectorResults = bookId
+            ? await prisma.$queryRawUnsafe(
+                `SELECT e.id, e.content, e."bookId" AS "bookId", b.title AS "bookTitle", b.author AS "bookAuthor", e.vector <=> $1::vector AS distance
+                 FROM embeddings e
+                 LEFT JOIN books b ON b.id = e."bookId"
+                 WHERE e."bookId" = $2
+                 AND e.vector IS NOT NULL
+                 ORDER BY distance ASC
+                 LIMIT $3`,
+                vectorStr,
+                bookId,
+                safeTopK
+            )
+            : await prisma.$queryRawUnsafe(
+                `SELECT e.id, e.content, e."bookId" AS "bookId", b.title AS "bookTitle", b.author AS "bookAuthor", e.vector <=> $1::vector AS distance
+                 FROM embeddings e
+                 LEFT JOIN books b ON b.id = e."bookId"
+                 WHERE e.vector IS NOT NULL
+                 ORDER BY distance ASC
+                 LIMIT $2`,
+                vectorStr,
+                safeTopK
+            );
 
-    return {
-        book: book ? { id: book.id, title: book.title } : null,
-        question,
-        method: 'vector_similarity',
-        results: vectorResults.map(r => ({
-            id: r.id,
-            content: r.content,
-            distance: r.distance,
-            book: r.book_id ? { id: r.book_id, title: r.book_title, author: r.book_author } : null,
-        })),
-    };
+        return {
+            book: book ? { id: book.id, title: book.title } : null,
+            question,
+            method: 'vector_similarity',
+            results: vectorResults.map(r => ({
+                id: r.id,
+                content: r.content,
+                distance: r.distance,
+                book: r.bookId ? { id: r.bookId, title: r.bookTitle, author: r.bookAuthor } : null,
+            })),
+        };
+    } catch (_err) {
+        // If pgvector column/query is unavailable, gracefully fall back.
+        return runTextSearch();
+    }
 }
 
 async function generateAnswer(question, retrievalResult) {
@@ -201,7 +209,6 @@ async function generateEmbedding(text) {
     if (!input) return [];
 
     if (!hasOpenRouterKey()) {
-        console.warn('⚠️  OPENROUTER_API_KEY is not configured. Returning empty embedding.');
         return [];
     }
 

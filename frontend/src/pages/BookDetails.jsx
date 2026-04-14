@@ -69,17 +69,7 @@ export default function BookDetails() {
   };
 
   const handleReadPdf = async () => {
-    try {
-      setActionLoading(true);
-      const { data } = await api.get(`/books/${id}/read`);
-      const signedUrl = data?.data?.signedUrl;
-      if (!signedUrl) throw new Error('Missing signed read URL.');
-      window.open(signedUrl, '_blank', 'noopener,noreferrer');
-    } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Unable to open PDF.');
-    } finally {
-      setActionLoading(false);
-    }
+    navigate(`/books/${id}/read`);
   };
 
   const handleRentDigital = async () => {
